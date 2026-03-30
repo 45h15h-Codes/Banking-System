@@ -1,0 +1,141 @@
+version: "3.9"
+
+services:
+  nginx:
+    image: nginx:alpine
+    ports: ["8080:80"]
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - api-gateway
+      - auth-service
+      - customer-service
+      - account-service
+      - transaction-service
+      - loan-service
+      - payment-service
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  mysql-auth:
+    image: mysql:8.0
+    environment: { MYSQL_DATABASE: bankcore_auth, MYSQL_ROOT_PASSWORD: secret }
+    ports: ["3307:3306"]
+
+  mysql-customer:
+    image: mysql:8.0
+    environment:
+      { MYSQL_DATABASE: bankcore_customer, MYSQL_ROOT_PASSWORD: secret }
+    ports: ["3308:3306"]
+
+  mysql-account:
+    image: mysql:8.0
+    environment:
+      { MYSQL_DATABASE: bankcore_account, MYSQL_ROOT_PASSWORD: secret }
+    ports: ["3309:3306"]
+
+  mysql-transaction:
+    image: mysql:8.0
+    environment:
+      { MYSQL_DATABASE: bankcore_transaction, MYSQL_ROOT_PASSWORD: secret }
+    ports: ["3310:3306"]
+
+  mysql-loan:
+    image: mysql:8.0
+    environment: { MYSQL_DATABASE: bankcore_loan, MYSQL_ROOT_PASSWORD: secret }
+    ports: ["3311:3306"]
+
+  mysql-payment:
+    image: mysql:8.0
+    environment:
+      { MYSQL_DATABASE: bankcore_payment, MYSQL_ROOT_PASSWORD: secret }
+    ports: ["3312:3306"]
+
+  api-gateway:
+    build:
+      context: ../services/api-gateway
+      target: development
+    environment:
+      APP_PORT: 8000
+    depends_on: [redis]
+    ports: ["8000:8000"]
+
+  auth-service:
+    build:
+      context: ../services/auth-service
+      target: development
+    environment:
+      APP_PORT: 8001
+      DB_HOST: mysql-auth
+      DB_DATABASE: bankcore_auth
+      REDIS_HOST: redis
+      DB_PASSWORD: secret
+    depends_on: [mysql-auth, redis]
+    ports: ["8001:8001"]
+
+  customer-service:
+    build:
+      context: ../services/customer-service
+      target: development
+    environment:
+      APP_PORT: 8002
+      DB_HOST: mysql-customer
+      DB_DATABASE: bankcore_customer
+      REDIS_HOST: redis
+      DB_PASSWORD: secret
+    depends_on: [mysql-customer, redis]
+    ports: ["8002:8002"]
+
+  account-service:
+    build:
+      context: ../services/account-service
+      target: development
+    environment:
+      APP_PORT: 8003
+      DB_HOST: mysql-account
+      DB_DATABASE: bankcore_account
+      REDIS_HOST: redis
+      DB_PASSWORD: secret
+    depends_on: [mysql-account, redis]
+    ports: ["8003:8003"]
+
+  transaction-service:
+    build:
+      context: ../services/transaction-service
+      target: development
+    environment:
+      APP_PORT: 8004
+      DB_HOST: mysql-transaction
+      DB_DATABASE: bankcore_transaction
+      REDIS_HOST: redis
+      DB_PASSWORD: secret
+    depends_on: [mysql-transaction, redis]
+    ports: ["8004:8004"]
+
+  loan-service:
+    build:
+      context: ../services/loan-service
+      target: development
+    environment:
+      APP_PORT: 8005
+      DB_HOST: mysql-loan
+      DB_DATABASE: bankcore_loan
+      REDIS_HOST: redis
+      DB_PASSWORD: secret
+    depends_on: [mysql-loan, redis]
+    ports: ["8005:8005"]
+
+  payment-service:
+    build:
+      context: ../services/payment-service
+      target: development
+    environment:
+      APP_PORT: 8006
+      DB_HOST: mysql-payment
+      DB_DATABASE: bankcore_payment
+      REDIS_HOST: redis
+      DB_PASSWORD: secret
+    depends_on: [mysql-payment, redis]
+    ports: ["8006:8006"]

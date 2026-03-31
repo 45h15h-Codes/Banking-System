@@ -13,7 +13,6 @@ We have successfully completed Phase 0 of the BankCore implementation. Our curre
 ---
 
 ## 🏗 Architecture & Design
-*(Based on the `architecture` and `architecture-decision-records` frameworks)*
 
 "Simplicity is the ultimate sophistication." Our architecture starts simple and adds complexity only when proven necessary.
 
@@ -31,7 +30,6 @@ We use ADRs to capture the context and rationale behind significant technical de
 ---
 
 ## 📚 API Documentation
-*(Based on the `api-documentation` and `api-documentation-generator` workflows)*
 
 Clear and comprehensive API documentation is critical for the success of our independently deployed microservices. 
 
@@ -48,7 +46,6 @@ Clear and comprehensive API documentation is critical for the success of our ind
 ---
 
 ## 📊 Analytics & Product Metrics
-*(Based on the `analytics-product` framework)*
 
 In God we trust. All others must bring data. 
 To measure the success of the BankCore system, tracking and telemetry have been ingrained from Phase 0.
@@ -68,7 +65,6 @@ We use cohort retention analysis and funnel monitoring to identify drop-offs occ
 ---
 
 ## ⚙️ Development Workflows
-*(Based on the `antigravity-workflows` skill)*
 
 We orchestrate complex tasks via automated and documented workflows to ensure quality and speed.
 

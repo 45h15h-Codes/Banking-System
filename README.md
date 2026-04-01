@@ -1,14 +1,20 @@
-# BankCore System - Phase 0 Progress
+# BankCore System - Progress Overview
 
 Welcome to the BankCore System repository! This README outlines our progress, core architectural decisions, and the standards we've established to ensure a scalable, secure, and maintainable microservices platform.
 
 ## Overview
 
-We have successfully completed Phase 0 of the BankCore implementation. Our current progress includes:
-- Establishing a monorepo architecture.
-- Scaffolding 7 independent Laravel microservices in the `services/` directory.
-- Configuring Docker-based infrastructure (`docker-compose`) and resolving initial database connectivity issues across MySQL instances.
-- Standardizing the `Dockerfile.template` for building robust container images.
+We have successfully completed Phase 0 and the Authentication segment of Phase 1 for the BankCore implementation. Our current progress includes:
+- **Phase 0 (Foundation)**:
+  - Establishing a monorepo architecture.
+  - Scaffolding 7 independent Laravel microservices in the `services/` directory.
+  - Configuring Docker-based infrastructure (`docker-compose`) and resolving initial database connectivity issues across MySQL instances.
+  - Standardizing the `Dockerfile.template` for building robust container images.
+- **Phase 1 (Auth Service)**:
+  - Finalizing the Docker environment for the `auth-service`.
+  - Executing database migrations and seeders for identity management.
+  - Implementing and verifying core authentication endpoints (`/register`, `/login`, `/me`, `/refresh`, `/logout`, and internal verification).
+  - Providing a fully functional and secure identity management system.
 
 ---
 
@@ -78,8 +84,9 @@ We orchestrate complex tasks via automated and documented workflows to ensure qu
 ---
 
 ## Next Steps
+- Implement logic and infrastructure for the remaining Phase 1 microservices.
 - Finalize CI/CD pipeline bindings.
-- Expand API gateway routing to unify the 7 microservices.
-- Execute security audit workflows before transitioning to Phase 1.
+- Expand API gateway routing to unify the microservices.
+- Execute comprehensive security audit workflows.
 
 *This project is monitored and reviewed regularly for code quality and architectural integrity. Let's keep building!*

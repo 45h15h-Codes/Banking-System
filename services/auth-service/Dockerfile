@@ -2,28 +2,29 @@
 FROM composer:2.7 AS deps
 WORKDIR /app
 COPY composer.json ./
-# For a fresh laravel project, composer.lock might not exist yet if not run, so we copy what we have
 COPY composer.* ./
 RUN composer install --no-dev --no-interaction --no-progress --no-scripts --prefer-dist || true
 
-# Stage 2: Final minimal image
-FROM php:8.3-cli-alpine
+# Stage 2: Final image (Debian-based for stability)
+FROM php:8.3-cli-bookworm
 
 # Install system dependencies & PHP extensions needed for Laravel
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     zip \
     unzip \
     libpng-dev \
     libzip-dev \
-    oniguruma-dev \
-    mariadb-client \
-    redis \
-    && docker-php-ext-install pdo_mysql mbstring zip exif pcntl bcmath gd
+    libonig-dev \
+    default-mysql-client \
+    && docker-php-ext-install pdo_mysql mbstring zip exif pcntl bcmath gd \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security (Security Best Practices)
-RUN addgroup -g 1001 -S appgroup && \
-    adduser -S appuser -u 1001 -G appgroup
+RUN groupadd -g 1001 appgroup && \
+    useradd -u 1001 -g appgroup -s /bin/bash -m appuser
 
 WORKDIR /app
 
@@ -31,8 +32,12 @@ WORKDIR /app
 COPY --chown=appuser:appgroup . .
 COPY --from=deps /app/vendor ./vendor
 
+# Remove host cache files to avoid "PailServiceProvider not found"
+RUN rm -f bootstrap/cache/*.php
+
+
 # Ensure storage and bootstrap/cache are writable
-RUN mkdir -p storage framework/cache/data framework/views framework/sessions bootstrap/cache && \
+RUN mkdir -p storage/framework/cache/data storage/framework/views storage/framework/sessions storage/logs bootstrap/cache && \
     chown -R appuser:appgroup storage bootstrap/cache
 
 # Switch to non-root user

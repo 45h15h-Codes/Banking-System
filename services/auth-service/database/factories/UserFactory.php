@@ -25,10 +25,14 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
+            'uuid' => Str::uuid()->toString(),
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
+            'phone' => '+91-' . fake()->numerify('##########'),
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
+            'role' => 'customer',
+            'is_active' => true,
             'remember_token' => Str::random(10),
         ];
     }
@@ -40,6 +44,42 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
+        ]);
+    }
+
+    /**
+     * Set user role.
+     */
+    public function role(string $role): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => $role,
+        ]);
+    }
+
+    /**
+     * Mark as admin.
+     */
+    public function admin(): static
+    {
+        return $this->role('admin');
+    }
+
+    /**
+     * Mark as bank officer.
+     */
+    public function officer(): static
+    {
+        return $this->role('bank_officer');
+    }
+
+    /**
+     * Mark as inactive/deactivated.
+     */
+    public function inactive(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_active' => false,
         ]);
     }
 }

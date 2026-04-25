@@ -24,20 +24,22 @@ Route::get('/v1/health', function () {
     ]);
 });
 
-Route::prefix('v1')->middleware('service.auth')->group(function () {
-
+Route::prefix('v1')->group(function () {
     // Customer Profile Endpoints
-    Route::post('/customers', [CustomerController::class, 'store']);
-    Route::get('/customers/me', [CustomerController::class, 'me']);
-    Route::put('/customers/me', [CustomerController::class, 'update']);
+    Route::middleware('service.auth')->group(function () {
+        Route::post('/customers', [CustomerController::class, 'store']);
+        Route::get('/customers/me', [CustomerController::class, 'me']);
+        Route::put('/customers/me', [CustomerController::class, 'update']);
+        Route::get('/customers/{id}/kyc/status', [CustomerController::class, 'kycStatus']);
 
-    // KYC Document Endpoints
-    Route::post('/kyc/documents', [KycController::class, 'uploadDocument']);
-    Route::post('/kyc/submit', [KycController::class, 'submitKyc']);
+        // KYC Document Endpoints
+        Route::post('/kyc/documents', [KycController::class, 'uploadDocument']);
+        Route::post('/kyc/submit', [KycController::class, 'submitKyc']);
+    });
 
-    // Officer route to update status
-    Route::patch('/kyc/{id}/status', [KycController::class, 'updateStatus']);
-
-    // Status route
-    Route::get('/customers/{id}/kyc/status', [CustomerController::class, 'kycStatus']);
+    Route::middleware('service.auth:admin,bank_officer')->group(function () {
+        Route::get('/kyc/reviews', [KycController::class, 'reviewQueue']);
+        Route::get('/kyc/reviews/{id}', [KycController::class, 'reviewShow']);
+        Route::patch('/kyc/{id}/status', [KycController::class, 'updateStatus']);
+    });
 });

@@ -19,29 +19,34 @@ class ServiceAuthMiddleware
     {
         $token = $request->bearerToken();
 
-        if (!$token) {
+        if (! $token) {
             return $this->error('Authentication token required', 401);
         }
 
         // Call the auth-service internal verify endpoint
-        $authServiceUrl = env('AUTH_SERVICE_URL', 'http://localhost:8001');
-        $internalSecret = env('INTERNAL_SERVICE_SECRET', 'secret_key');
+        $authServiceUrl = rtrim((string) env('AUTH_SERVICE_URL', 'http://localhost:8001'), '/');
+        $internalSecret = env('INTERNAL_SERVICE_TOKEN', env('INTERNAL_SERVICE_SECRET', 'secret_key'));
 
         try {
             $response = Http::withHeaders([
                 'X-Internal-Token' => $internalSecret,
             ])->withToken($token)->get("{$authServiceUrl}/api/v1/internal/auth/verify");
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 $msg = $response->json('error.message', 'Invalid or expired token');
+
                 return $this->error($msg, $response->status());
             }
 
             $userData = $response->json('data.user');
 
+            if (! is_array($userData) || empty($userData['uuid']) || empty($userData['role'])) {
+                return $this->error('Invalid authentication response', 401);
+            }
+
             // Optionally check roles if passed as middleware parameters e.g., service.auth:admin
-            if (!empty($roles)) {
-                if (!in_array($userData['role'], $roles)) {
+            if (! empty($roles)) {
+                if (! in_array($userData['role'], $roles, true)) {
                     return $this->error('Forbidden. Insufficient role.', 403);
                 }
             }
@@ -52,8 +57,8 @@ class ServiceAuthMiddleware
             $request->attributes->set('user_email', $userData['email']);
 
             return $next($request);
-        } catch (\Exception $e) {
-            return $this->error('Auth service unavailable', 503, $e->getMessage());
+        } catch (\Exception) {
+            return $this->error('Auth service unavailable', 503);
         }
     }
 }

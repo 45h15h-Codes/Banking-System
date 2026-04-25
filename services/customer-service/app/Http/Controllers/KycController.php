@@ -2,14 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ListKycReviewsRequest;
+use App\Http\Requests\UpdateKycStatusRequest;
+use App\Http\Requests\UploadKycDocumentRequest;
 use App\Models\Customer;
-use App\Models\KycDocument;
 use App\Models\KycAuditLog;
+use App\Models\KycDocument;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Validator;
+use Throwable;
 
 class KycController extends Controller
 {
@@ -18,36 +20,31 @@ class KycController extends Controller
     /**
      * Upload a KYC document.
      */
-    public function uploadDocument(Request $request)
+    public function uploadDocument(UploadKycDocumentRequest $request)
     {
-        $validator = Validator::make($request->all(), [
-            'document_type' => 'required|in:pan,aadhaar,passport,utility_bill,driving_license',
-            'file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120', // Support up to 5MB
-        ]);
-
-        if ($validator->fails()) {
-            return $this->error('Validation failed', 422, $validator->errors());
-        }
-
         $userId = $request->attributes->get('user_id');
         $customer = Customer::where('user_id', $userId)->first();
 
-        if (!$customer) {
+        if (! $customer) {
             return $this->error('Customer profile not found', 404);
+        }
+
+        if ($customer->kyc_status === 'approved') {
+            return $this->error('Approved KYC documents cannot be changed', 409);
         }
 
         try {
             $file = $request->file('file');
-            // Store using local disk (could map to S3 via env configured disk in the future)
+
             $path = $file->storeAs(
                 "kyc_documents/{$customer->id}",
-                uniqid() . '.' . $file->extension(),
+                $file->hashName(),
                 'public'
             );
 
             $document = KycDocument::create([
                 'customer_id' => $customer->id,
-                'document_type' => $request->document_type,
+                'document_type' => $request->validated('document_type'),
                 'file_path' => $path,
                 'status' => 'uploaded',
             ]);
@@ -66,8 +63,8 @@ class KycController extends Controller
             }
 
             return $this->success($document, 'Document uploaded successfully', 201);
-        } catch (\Exception $e) {
-            return $this->error('Failed to upload document', 500, $e->getMessage());
+        } catch (Throwable) {
+            return $this->error('Failed to upload document', 500);
         }
     }
 
@@ -79,83 +76,106 @@ class KycController extends Controller
         $userId = $request->attributes->get('user_id');
         $customer = Customer::where('user_id', $userId)->first();
 
-        if (!$customer) {
+        if (! $customer) {
             return $this->error('Customer profile not found', 404);
         }
 
-        if ($customer->kyc_status !== 'pending') {
+        if (! in_array($customer->kyc_status, ['pending', 'rejected'], true)) {
             return $this->error("Cannot submit KYC. Current status is {$customer->kyc_status}", 400);
         }
 
         DB::beginTransaction();
         try {
-            // Log the change
+            $oldStatus = $customer->kyc_status;
+
             KycAuditLog::create([
                 'customer_id' => $customer->id,
                 'action' => 'STATUS_CHANGE',
-                'old_value' => 'pending',
+                'old_value' => $oldStatus,
                 'new_value' => 'under_review',
-                'performed_by' => $userId, // The user themselves triggers this submit
+                'performed_by' => $userId,
             ]);
 
-            // Update status
             $customer->update(['kyc_status' => 'under_review']);
 
             DB::commit();
+
             return $this->success($customer, 'KYC submitted successfully for review');
-        } catch (\Exception $e) {
+        } catch (Throwable) {
             DB::rollBack();
-            return $this->error('Failed to submit KYC', 500, $e->getMessage());
+
+            return $this->error('Failed to submit KYC', 500);
         }
     }
 
     /**
      * Admin/Officer approval of KYC statuses. Simulated workflow.
      */
-    public function updateStatus(Request $request, $id)
+    public function updateStatus(UpdateKycStatusRequest $request, string $id)
     {
-        $validator = Validator::make($request->all(), [
-            'status' => 'required|in:approved,rejected',
-            'remarks' => 'nullable|string',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->error('Validation failed', 422, $validator->errors());
-        }
-
-        // Ideally checking for admin/officer role here!
         $adminId = $request->attributes->get('user_id');
 
-        $customer = Customer::find($id);
+        $customer = Customer::with(['kycDocuments', 'kycAuditLogs'])->find($id);
 
-        if (!$customer) {
+        if (! $customer) {
             return $this->error('Customer not found', 404);
         }
 
-        if ($customer->kyc_status === 'approved' && $request->status === 'approved') {
-            return $this->error('KYC is already approved', 400);
+        if ($customer->kyc_status !== 'under_review') {
+            return $this->error('KYC must be under review before approval or rejection', 409);
         }
 
         DB::beginTransaction();
         try {
             $oldStatus = $customer->kyc_status;
-            
+
             KycAuditLog::create([
                 'customer_id' => $customer->id,
                 'action' => 'STATUS_CHANGE',
                 'old_value' => $oldStatus,
-                'new_value' => $request->status,
+                'new_value' => $request->validated('status'),
                 'performed_by' => $adminId,
-                'remarks' => $request->remarks ?? 'Status updated by officer',
+                'remarks' => $request->validated('remarks') ?? 'Status updated by officer',
             ]);
 
-            $customer->update(['kyc_status' => $request->status]);
+            $customer->update(['kyc_status' => $request->validated('status')]);
 
             DB::commit();
-            return $this->success($customer, "KYC status updated to {$request->status}");
-        } catch (\Exception $e) {
+
+            return $this->success(
+                $customer->fresh(['kycDocuments', 'kycAuditLogs']),
+                "KYC status updated to {$request->validated('status')}"
+            );
+        } catch (Throwable) {
             DB::rollBack();
-            return $this->error('Failed to update KYC status', 500, $e->getMessage());
+
+            return $this->error('Failed to update KYC status', 500);
         }
+    }
+
+    public function reviewQueue(ListKycReviewsRequest $request)
+    {
+        $status = $request->validated('status', 'under_review');
+        $perPage = (int) $request->validated('per_page', 50);
+
+        $customers = Customer::query()
+            ->with(['kycDocuments', 'kycAuditLogs'])
+            ->where('kyc_status', $status)
+            ->latest()
+            ->limit($perPage)
+            ->get();
+
+        return $this->success($customers, 'KYC review queue retrieved');
+    }
+
+    public function reviewShow(string $id)
+    {
+        $customer = Customer::with(['kycDocuments', 'kycAuditLogs'])->find($id);
+
+        if (! $customer) {
+            return $this->error('Customer not found', 404);
+        }
+
+        return $this->success($customer, 'KYC review record retrieved');
     }
 }

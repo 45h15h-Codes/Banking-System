@@ -35,4 +35,21 @@ return [
         ],
     ],
 
+    'auth_service' => [
+        'url' => env('AUTH_SERVICE_URL', 'http://localhost:8001'),
+        'internal_token' => env('INTERNAL_SERVICE_TOKEN', env('INTERNAL_SERVICE_SECRET', 'secret_key')),
+        'timeout' => (int) env('INTERNAL_HTTP_TIMEOUT', 5),
+    ],
+
+    'account_service' => [
+        'url' => env('ACCOUNT_SERVICE_URL', 'http://localhost:8003'),
+        'internal_token' => env('INTERNAL_SERVICE_TOKEN', env('INTERNAL_SERVICE_SECRET', 'secret_key')),
+        'timeout' => (int) env('INTERNAL_HTTP_TIMEOUT', 5),
+    ],
+
+    'customer_service' => [
+        'url' => env('CUSTOMER_SERVICE_URL', 'http://localhost:8002'),
+        'timeout' => (int) env('INTERNAL_HTTP_TIMEOUT', 5),
+    ],
+
 ];
